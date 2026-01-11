@@ -1,0 +1,44 @@
+models 
+#ignore Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*$py.class
+
+#ignore virtual environment folders
+venv/
+env/
+.venv/
+ENV/
+#ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+#ignore data files
+data/
+*.csv
+*.tsv
+*.json
+*.xlsx
+*.h5
+#ignore log files
+logs/
+*.log
+#ignore system files
+.DS_Store
+Thumbs.db
+#ignore IDE specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+.env
+bankbot_ai
+
+# ignore this notebook (in experiments folder)
+experiments/visual.ipynb
+
+# ignore the Streamlit app file at repo root
+streamlit_app.py
