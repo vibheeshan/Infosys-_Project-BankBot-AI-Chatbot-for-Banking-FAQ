@@ -73,6 +73,25 @@ def init_db():
     )
     """)
 
+    # Loans table (for loan information)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS loans (
+        loan_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_number TEXT NOT NULL,
+        loan_type TEXT,
+        principal_amount REAL NOT NULL,
+        interest_rate REAL DEFAULT 0.0,
+        tenure_months INTEGER,
+        monthly_emi REAL,
+        remaining_amount REAL,
+        status TEXT DEFAULT 'Active',
+        start_date TEXT,
+        end_date TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(account_number) REFERENCES accounts(account_number)
+    )
+    """)
+
     conn.commit()
     conn.close()
     print(f"Database initialized at {DB_NAME}")
@@ -92,6 +111,7 @@ def seed_demo_data():
     try:
         # Clear existing data
         cur.execute("DELETE FROM transactions")
+        cur.execute("DELETE FROM loans")
         cur.execute("DELETE FROM cards")
         cur.execute("DELETE FROM accounts")
         cur.execute("DELETE FROM users")
@@ -126,6 +146,21 @@ def seed_demo_data():
                 INSERT INTO cards (account_number, card_type, status)
                 VALUES (?, ?, ?)
             """, (acc_no, "Credit", "Active"))
+        
+        # Add demo loans
+        sample_loans = [
+            ("1001", "Personal Loan", 500000, 8.5, 60, 10500, "2023-01-15"),
+            ("1002", "Home Loan", 2500000, 6.5, 240, 16250, "2022-06-01"),
+            ("1003", "Auto Loan", 800000, 9.0, 84, 10500, "2023-03-20"),
+        ]
+        
+        for acc_no, loan_type, principal, rate, tenure, emi, start_date in sample_loans:
+            remaining = principal * 0.75  # Assume 25% paid
+            cur.execute("""
+                INSERT INTO loans 
+                (account_number, loan_type, principal_amount, interest_rate, tenure_months, monthly_emi, remaining_amount, status, start_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (acc_no, loan_type, principal, rate, tenure, emi, remaining, "Active", start_date))
         
         # Add some sample transactions
         sample_transactions = [

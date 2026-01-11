@@ -21,6 +21,8 @@ except Exception:
 from datetime import datetime
 import json
 from pathlib import Path
+import pandas as pd
+import numpy as np
 
 # Import core modules
 from nlu_engine.nlu_router import process_query
@@ -36,6 +38,12 @@ from database.bank_crud import (
     get_account,
     get_transaction_history,
     authenticate,
+    get_cards_by_account,
+    get_loans_by_account,
+    add_card,
+    add_loan,
+    update_card_status,
+    update_loan_status,
 )
 
 # ============================================================================
@@ -629,41 +637,414 @@ elif selected == "📊 Accounts":
         st.warning("No accounts found. Create one to get started!")
     else:
         # Display all accounts
-        st.markdown("### Available Accounts")
+        st.markdown("### 💼 Available Accounts")
         
-        cols = st.columns(len(accounts))
-        for idx, account in enumerate(accounts):
-            with cols[idx]:
-                st.markdown(f"""
-                    <div class="info-card">
-                        <h4 style='color: #00D9FF;'>{account['user_name']}</h4>
-                        <p><strong>Account No:</strong> {account['account_number']}</p>
-                        <p><strong>Type:</strong> {account['account_type']}</p>
-                        <p><strong>Status:</strong> {account['status']}</p>
-                        <p style='color: #10B981; font-size: 1.25em;'>
-                            <strong>₹{account['balance']:,.2f}</strong>
-                        </p>
+        for account in accounts:
+            account_name = account['user_name'] if account['user_name'] else "No Name"
+            account_number = account['account_number']
+            
+            # Get cards for this account
+            cards = get_cards_by_account(account_number)
+            
+            st.markdown(f"""
+            <div style='
+                background: linear-gradient(135deg, rgba(0, 217, 255, 0.05), rgba(30, 144, 255, 0.05));
+                border: 2px solid rgba(0, 217, 255, 0.2);
+                border-radius: 12px;
+                padding: 20px;
+                margin-bottom: 20px;
+            '>
+                <div style='display: grid; grid-template-columns: 2fr 3fr; gap: 20px;'>
+                    <!-- Account Info Column -->
+                    <div>
+                        <h3 style='color: #00D9FF; margin-top: 0;'>{account_name}</h3>
+                        <div style='
+                            background: rgba(0, 217, 255, 0.05);
+                            border-left: 3px solid #00D9FF;
+                            padding: 12px;
+                            border-radius: 4px;
+                            margin-bottom: 10px;
+                        '>
+                            <p style='margin: 0; color: #9CA3AF; font-size: 0.8em;'>Account Number</p>
+                            <p style='margin: 5px 0 0 0; color: #E8EAED; font-weight: bold; font-size: 1.1em;'>{account_number}</p>
+                        </div>
+                        
+                        <div style='
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            gap: 10px;
+                        '>
+                            <div style='
+                                background: rgba(16, 185, 129, 0.05);
+                                border-left: 3px solid #10B981;
+                                padding: 10px;
+                                border-radius: 4px;
+                            '>
+                                <p style='margin: 0; color: #9CA3AF; font-size: 0.75em;'>Type</p>
+                                <p style='margin: 5px 0 0 0; color: #E8EAED; font-weight: bold;'>{account['account_type']}</p>
+                            </div>
+                            <div style='
+                                background: rgba(239, 68, 68, 0.05);
+                                border-left: 3px solid #EF4444;
+                                padding: 10px;
+                                border-radius: 4px;
+                            '>
+                                <p style='margin: 0; color: #9CA3AF; font-size: 0.75em;'>Status</p>
+                                <p style='margin: 5px 0 0 0; color: #10B981; font-weight: bold;'>{account['status']}</p>
+                            </div>
+                        </div>
+                        
+                        <div style='
+                            background: rgba(16, 185, 129, 0.1);
+                            border: 2px solid #10B981;
+                            border-radius: 8px;
+                            padding: 12px;
+                            margin-top: 15px;
+                            text-align: center;
+                        '>
+                            <p style='margin: 0; color: #9CA3AF; font-size: 0.8em;'>Current Balance</p>
+                            <p style='margin: 8px 0 0 0; color: #10B981; font-size: 1.8em; font-weight: bold;'>₹{account['balance']:,.2f}</p>
+                        </div>
                     </div>
-                """, unsafe_allow_html=True)
+                    
+                    <!-- Cards Column -->
+                    <div>
+                        <h4 style='color: #00D9FF; margin-top: 0;'>🃏 Associated Cards</h4>
+                        <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 12px;'>
+            """, unsafe_allow_html=True)
+            
+            if cards:
+                for card in cards:
+                    card_color = "#FFD700" if card['card_type'] == "Credit" else "#1E90FF"
+                    card_emoji = "💳" if card['card_type'] == "Debit" else "💰"
+                    status_color = "#10B981" if card['status'] == "Active" else "#EF4444" if card['status'] == "Blocked" else "#9CA3AF"
+                    
+                    st.markdown(f"""
+                            <div style='
+                                background: rgba({','.join([str(int(c*255)) if c != '#' else '' for c in (card_color[1:3], card_color[3:5], card_color[5:7])])}, 0.1);
+                                border: 2px solid {card_color};
+                                border-radius: 10px;
+                                padding: 12px;
+                            '>
+                                <p style='margin: 0; color: {card_color}; font-weight: bold; font-size: 0.95em;'>{card_emoji} {card['card_type']}</p>
+                                <p style='margin: 8px 0 0 0; color: #9CA3AF; font-size: 0.85em; font-family: monospace;'>•••• •••• •••• {card['card_number'][-4:] if card['card_number'] else '••••'}</p>
+                                <p style='margin: 8px 0 0 0; color: {status_color}; font-size: 0.8em; font-weight: bold;'>
+                                    {'🟢' if card['status'] == 'Active' else '🔴'} {card['status']}
+                                </p>
+                                <p style='margin: 5px 0 0 0; color: #9CA3AF; font-size: 0.75em;'>ID: {card['card_id']}</p>
+                            </div>
+                        """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                            <div style='
+                                background: rgba(156, 163, 175, 0.1);
+                                border: 2px dashed #9CA3AF;
+                                border-radius: 10px;
+                                padding: 15px;
+                                text-align: center;
+                                grid-column: 1 / -1;
+                            '>
+                                <p style='margin: 0; color: #9CA3AF;'>No cards assigned</p>
+                            </div>
+                        """, unsafe_allow_html=True)
+            
+            st.markdown(f"""
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
         
         st.divider()
         
         # Detailed account view
-        st.markdown("### Account Details")
+        st.markdown("### 📊 Account Details")
         selected_account_no = st.selectbox(
             "Select account to view details",
             [acc["account_number"] for acc in accounts],
-            format_func=lambda x: next((f"{a['account_number']} - {a['user_name']}" for a in accounts if a['account_number'] == x), x)
+            format_func=lambda x: next((f"{a['account_number']} - {a['user_name'] if a['user_name'] else 'No Name'}" for a in accounts if a['account_number'] == x), x)
         )
         
         account = next((a for a in accounts if a["account_number"] == selected_account_no), None)
         
         if account:
+            account_name = account['user_name'] if account['user_name'] else 'Unknown'
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Account Number", account["account_number"])
-            col2.metric("Account Type", account["account_type"])
-            col3.metric("Status", account["status"])
+            col2.metric("Account Holder", account_name)
+            col3.metric("Account Type", account["account_type"])
             col4.metric("Balance", f"₹{account['balance']:,.2f}")
+            
+            st.divider()
+            
+
+            # Create tabs for additional account information
+            tab_cards, tab_loans = st.tabs(["🃏 Cards", "📊 Loans"])
+            
+            # ========== CARDS TAB ==========
+            with tab_cards:
+                st.markdown("### 🃏 Your Cards")
+                cards = get_cards_by_account(selected_account_no)
+                
+                if cards:
+                    for idx, card in enumerate(cards):
+                        # Determine card color based on type
+                        card_color = "#FFD700" if card['card_type'] == "Credit" else "#1E90FF"
+                        card_bg = "linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.05))" if card['card_type'] == "Credit" else "linear-gradient(135deg, rgba(30, 144, 255, 0.1), rgba(30, 144, 255, 0.05))"
+                        status_color = "#10B981" if card['status'] == "Active" else "#EF4444" if card['status'] == "Blocked" else "#9CA3AF"
+                        
+                        # Card number display
+                        card_num = card['card_number'] if card['card_number'] else "0000000000000000"
+                        # Format as XXXX XXXX XXXX XXXX with last 4 visible
+                        if card['card_number']:
+                            display_num = f"•••• •••• •••• {card['card_number'][-4:]}"
+                        else:
+                            display_num = "•••• •••• •••• ••••"
+                        
+                        st.markdown(f"""
+                        <div style='
+                            background: {card_bg};
+                            border: 2px solid {card_color};
+                            border-radius: 15px;
+                            padding: 25px;
+                            margin-bottom: 20px;
+                            box-shadow: 0 8px 16px rgba(0, 217, 255, 0.1);
+                        '>
+                            <div style='
+                                display: grid;
+                                grid-template-columns: 1fr 1fr;
+                                gap: 20px;
+                                align-items: start;
+                            '>
+                                <div>
+                                    <div style='
+                                        background: {card_bg};
+                                        border: 2px solid {card_color};
+                                        border-radius: 12px;
+                                        padding: 20px;
+                                        margin-bottom: 15px;
+                                        min-height: 150px;
+                                        display: flex;
+                                        flex-direction: column;
+                                        justify-content: space-between;
+                                        position: relative;
+                                        overflow: hidden;
+                                    '>
+                                        <div style='
+                                            position: absolute;
+                                            top: -30px;
+                                            right: -30px;
+                                            width: 100px;
+                                            height: 100px;
+                                            border-radius: 50%;
+                                            background: {card_color};
+                                            opacity: 0.1;
+                                        '></div>
+                                        
+                                        <div>
+                                            <p style='
+                                                color: #9CA3AF;
+                                                font-size: 0.85em;
+                                                margin: 0;
+                                                text-transform: uppercase;
+                                                letter-spacing: 1px;
+                                            '>Card Number</p>
+                                            <p style='
+                                                color: {card_color};
+                                                font-size: 1.8em;
+                                                margin: 10px 0 0 0;
+                                                font-family: monospace;
+                                                font-weight: bold;
+                                                letter-spacing: 3px;
+                                            '>{display_num}</p>
+                                        </div>
+                                        
+                                        <div style='
+                                            display: flex;
+                                            justify-content: space-between;
+                                            align-items: flex-end;
+                                        '>
+                                            <div>
+                                                <p style='
+                                                    color: #9CA3AF;
+                                                    font-size: 0.75em;
+                                                    margin: 0;
+                                                    text-transform: uppercase;
+                                                '>Cardholder</p>
+                                                <p style='
+                                                    color: #E8EAED;
+                                                    font-size: 0.95em;
+                                                    margin: 5px 0 0 0;
+                                                    font-weight: 600;
+                                                '>{account_name}</p>
+                                            </div>
+                                            <div style='
+                                                text-align: right;
+                                            '>
+                                                <p style='
+                                                    color: #9CA3AF;
+                                                    font-size: 0.75em;
+                                                    margin: 0;
+                                                    text-transform: uppercase;
+                                                '>Expires</p>
+                                                <p style='
+                                                    color: #E8EAED;
+                                                    font-size: 0.95em;
+                                                    margin: 5px 0 0 0;
+                                                    font-weight: 600;
+                                                '>12/28</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div style='
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 12px;
+                                '>
+                                    <div style='
+                                        background: rgba(0, 217, 255, 0.05);
+                                        border-left: 3px solid #00D9FF;
+                                        padding: 12px;
+                                        border-radius: 4px;
+                                    '>
+                                        <p style='margin: 0; color: #9CA3AF; font-size: 0.8em;'>Card Type</p>
+                                        <p style='margin: 5px 0 0 0; color: {card_color}; font-weight: bold;'>{card['card_type']}</p>
+                                    </div>
+                                    
+                                    <div style='
+                                        background: rgba(16, 185, 129, 0.05);
+                                        border-left: 3px solid {status_color};
+                                        padding: 12px;
+                                        border-radius: 4px;
+                                    '>
+                                        <p style='margin: 0; color: #9CA3AF; font-size: 0.8em;'>Status</p>
+                                        <p style='margin: 5px 0 0 0; color: {status_color}; font-weight: bold;'>{card['status']}</p>
+                                    </div>
+                                    
+                                    <div style='
+                                        background: rgba(156, 163, 175, 0.05);
+                                        border-left: 3px solid #9CA3AF;
+                                        padding: 12px;
+                                        border-radius: 4px;
+                                    '>
+                                        <p style='margin: 0; color: #9CA3AF; font-size: 0.8em;'>Card ID</p>
+                                        <p style='margin: 5px 0 0 0; color: #E8EAED; font-weight: bold;'>{card['card_id']}</p>
+                                    </div>
+                                    
+                                    <div style='
+                                        background: rgba(156, 163, 175, 0.05);
+                                        border-left: 3px solid #9CA3AF;
+                                        padding: 12px;
+                                        border-radius: 4px;
+                                    '>
+                                        <p style='margin: 0; color: #9CA3AF; font-size: 0.8em;'>Issued</p>
+                                        <p style='margin: 5px 0 0 0; color: #E8EAED; font-weight: bold;'>{card['created_at'][:10] if card['created_at'] else 'N/A'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Action buttons
+                        col_btn1, col_btn2, col_btn3 = st.columns(3)
+                        with col_btn1:
+                            if card['status'] == 'Active':
+                                if st.button("🚫 Block Card", key=f"block_card_{card['card_id']}", use_container_width=True):
+                                    if update_card_status(card['card_id'], 'Blocked'):
+                                        st.success("✅ Card blocked successfully")
+                                        st.rerun()
+                            else:
+                                st.button("🔒 Blocked", key=f"blocked_display_{card['card_id']}", use_container_width=True, disabled=True)
+                        
+                        with col_btn2:
+                            if st.button("❌ Cancel Card", key=f"cancel_card_{card['card_id']}", use_container_width=True):
+                                if update_card_status(card['card_id'], 'Cancelled'):
+                                    st.success("✅ Card cancelled successfully")
+                                    st.rerun()
+                        
+                        with col_btn3:
+                            if card['status'] == 'Active':
+                                st.button("✅ Active", key=f"active_display_{card['card_id']}", use_container_width=True, disabled=True)
+                        
+                        st.divider()
+                else:
+                    st.info("No cards found for this account")
+                
+                st.markdown("---")
+                st.markdown("### ➕ Add New Card")
+                col_card_add1, col_card_add2 = st.columns(2)
+                with col_card_add1:
+                    new_card_type = st.selectbox("Select Card Type", ["Debit", "Credit"])
+                with col_card_add2:
+                    new_card_number = st.text_input("Card Number (optional)", placeholder="XXXX XXXX XXXX XXXX")
+                
+                if st.button("➕ Add New Card", use_container_width=True, key="add_card_btn"):
+                    if add_card(selected_account_no, new_card_type, new_card_number if new_card_number else None):
+                        st.success(f"✅ {new_card_type} Card added successfully!")
+                        st.rerun()
+                    else:
+                        st.error("Failed to add card")
+            
+            # ========== LOANS TAB ==========
+            with tab_loans:
+                st.markdown("### 📊 Your Loans")
+                loans = get_loans_by_account(selected_account_no)
+                
+                if loans:
+                    for idx, loan in enumerate(loans):
+                        st.markdown(f"""
+                        <div class="info-card">
+                            <h4 style='color: #00D9FF;'>💰 {loan['loan_type']} Loan</h4>
+                            <p><strong>Loan ID:</strong> {loan['loan_id']}</p>
+                            <p><strong>Status:</strong> <span style='color: #10B981;'>{loan['status']}</span></p>
+                            <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 10px;'>
+                                <div>
+                                    <p><strong>Principal Amount:</strong> ₹{loan['principal_amount']:,.2f}</p>
+                                    <p><strong>Interest Rate:</strong> {loan['interest_rate']}%</p>
+                                </div>
+                                <div>
+                                    <p><strong>Tenure:</strong> {loan['tenure_months']} months</p>
+                                    <p><strong>Monthly EMI:</strong> ₹{loan['monthly_emi']:,.2f}</p>
+                                </div>
+                            </div>
+                            <p><strong>Remaining Amount:</strong> <span style='color: #EF4444;'>₹{loan['remaining_amount']:,.2f}</span></p>
+                            <p><strong>Start Date:</strong> {loan['start_date'][:10] if loan['start_date'] else 'N/A'}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Loan action buttons
+                        if loan['status'] == 'Active':
+                            col_loan_btn1, col_loan_btn2 = st.columns(2)
+                            with col_loan_btn1:
+                                if st.button("✅ Close Loan", key=f"close_loan_{loan['loan_id']}", use_container_width=True):
+                                    if update_loan_status(loan['loan_id'], 'Closed'):
+                                        st.success("Loan closed successfully")
+                                        st.rerun()
+                else:
+                    st.info("No loans found for this account")
+                
+                st.divider()
+                st.markdown("### Apply for New Loan")
+                col_loan_add1, col_loan_add2 = st.columns(2)
+                with col_loan_add1:
+                    new_loan_type = st.selectbox("Loan Type", ["Personal Loan", "Home Loan", "Auto Loan", "Education Loan"])
+                    new_principal = st.number_input("Principal Amount (₹)", min_value=10000.0, step=1000.0, value=50000.0)
+                
+                with col_loan_add2:
+                    new_interest_rate = st.number_input("Interest Rate (%)", min_value=0.0, max_value=30.0, step=0.1, value=8.5)
+                    new_tenure = st.number_input("Tenure (months)", min_value=6, max_value=360, step=6, value=60)
+                
+                new_emi = (new_principal * (new_interest_rate/100/12) * ((1 + new_interest_rate/100/12)**new_tenure)) / (((1 + new_interest_rate/100/12)**new_tenure) - 1) if new_tenure > 0 else 0
+                st.metric("Estimated Monthly EMI", f"₹{new_emi:,.2f}")
+                
+                if st.button("➕ Apply for Loan", use_container_width=True, key="add_loan_btn"):
+                    if add_loan(selected_account_no, new_loan_type, new_principal, new_interest_rate, new_tenure, new_emi):
+                        st.success(f"✅ {new_loan_type} application submitted successfully!")
+                        st.rerun()
+                    else:
+                        st.error("Failed to apply for loan")
 
 elif selected == "💰 Transactions":
     st.markdown("# 💰 Transaction History")
@@ -701,86 +1082,246 @@ elif selected == "💰 Transactions":
         st.warning("No accounts available")
 
 elif selected == "➕ Create Account":
-    st.markdown("# ➕ Create New Account")
-    st.markdown("Open a new bank account with BankBot AI")
+    st.markdown("# ➕ Account Management")
+    st.markdown("Manage accounts - View, Create New, or Add Existing accounts")
     st.divider()
     
-    col1, col2 = st.columns([2, 1])
+    # Tab: View Existing Account Details OR Create New Account OR Add Existing Account
+    tab_view, tab_create, tab_add = st.tabs(["🔍 View Account Details", "➕ Create New Account", "➕ Add Existing Account"])
     
-    with col1:
-        st.markdown("### Account Information")
+    # ========== TAB 1: VIEW EXISTING ACCOUNT DETAILS ==========
+    with tab_view:
+        st.markdown("### 🔍 View Existing Account Details")
+        st.markdown("Enter an account number to retrieve all account information")
         
-        user_name = st.text_input("Full Name", placeholder="e.g., John Doe")
-        account_type = st.selectbox("Account Type", ["Savings", "Current", "Student", "Senior Citizen"])
+        search_account = st.text_input(
+            "Enter Account Number",
+            placeholder="e.g., 1001 or 2345",
+            key="search_account_number"
+        )
         
-        st.markdown("### Security Setup")
-        login_pin = st.text_input("Login PIN (4 digits)", type="password", placeholder="e.g., 1234", key="new_login_pin")
-        login_pin_confirm = st.text_input("Confirm Login PIN", type="password", placeholder="Confirm PIN", key="new_login_pin_confirm")
+        if st.button("🔎 Search Account", use_container_width=True):
+            if search_account.strip():
+                # Get account details
+                all_accounts = get_all_accounts()
+                found_account = next((acc for acc in all_accounts if acc['account_number'] == search_account.strip()), None)
+                
+                if found_account:
+                    st.success(f"✅ Account Found!")
+                    
+                    # Display account details in a card format
+                    st.markdown(f"""
+                    <div class="info-card">
+                        <h3 style='color: #00D9FF;'>📋 Account Details</h3>
+                        <p><strong>Account Number:</strong> <code>{found_account['account_number']}</code></p>
+                        <p><strong>Account Holder Name:</strong> {found_account['user_name'] if found_account['user_name'] else 'No Name'}</p>
+                        <p><strong>Account Type:</strong> {found_account['account_type']}</p>
+                        <p><strong>Status:</strong> {found_account['status']}</p>
+                        <p><strong>Current Balance:</strong> <span style='color: #10B981; font-size: 1.2em;'>₹{found_account['balance']:,.2f}</span></p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.divider()
+                    
+                    # Display PIN information (with security notice)
+                    st.warning("⚠️ **Security Information** - Keep these credentials safe and never share!")
+                    
+                    col_pin1, col_pin2 = st.columns(2)
+                    
+                    with col_pin1:
+                        st.markdown("""
+                        ### Login PIN Information
+                        - **Purpose:** Used to login to your account
+                        - **Length:** 4 digits
+                        - **Status:** Set and secured
+                        """)
+                    
+                    with col_pin2:
+                        st.markdown("""
+                        ### Transaction PIN Information
+                        - **Purpose:** Used for money transfers
+                        - **Length:** 4 digits
+                        - **Status:** Set and secured
+                        """)
+                    
+                    st.info("💡 **Note:** Exact PIN values are stored securely and are not displayed for security reasons. Only you know your PINs.")
+                    
+                else:
+                    st.error(f"❌ Account number `{search_account.strip()}` not found!")
+                    st.markdown("**Available accounts:**")
+                    all_accounts = get_all_accounts()
+                    if all_accounts:
+                        for acc in all_accounts:
+                            st.markdown(f"- `{acc['account_number']}` - {acc['user_name'] if acc['user_name'] else 'No Name'}")
+            else:
+                st.warning("Please enter an account number")
+    
+    # ========== TAB 2: CREATE NEW ACCOUNT ==========
+    with tab_create:
+        st.markdown("### ➕ Create New Account")
+        st.markdown("Open a new bank account with BankBot AI")
+        st.divider()
         
-        transaction_pin = st.text_input("Transaction PIN (4 digits)", type="password", placeholder="e.g., 4321", key="new_trans_pin")
-        transaction_pin_confirm = st.text_input("Confirm Transaction PIN", type="password", placeholder="Confirm PIN", key="new_trans_pin_confirm")
+        # Show existing accounts
+        st.markdown("### 📋 Existing Accounts")
+        existing_accounts = get_all_accounts()
         
-        initial_balance = st.number_input("Initial Balance (₹)", min_value=0.0, value=1000.0, step=100.0)
+        if existing_accounts:
+            st.markdown(f"**Total Accounts: {len(existing_accounts)}**")
+            
+            # Display existing accounts in a table format
+            account_data = []
+            for acc in existing_accounts:
+                account_data.append({
+                    "Account Number": acc['account_number'],
+                    "Name": acc['user_name'] if acc['user_name'] else "No Name",
+                    "Type": acc['account_type'],
+                    "Status": acc['status'],
+                    "Balance": f"₹{acc['balance']:,.2f}"
+                })
+            
+            df_existing = pd.DataFrame(account_data)
+            st.dataframe(df_existing, use_container_width=True, hide_index=True)
+        else:
+            st.info("No existing accounts yet. Create your first account below!")
         
         st.divider()
         
-        if st.button("✅ Create Account", use_container_width=True, type="primary"):
-            # Validation
-            errors = []
+        # Create new account form
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.markdown("### Account Information")
             
-            if not user_name.strip():
-                errors.append("Please enter a name")
-            if not login_pin or len(login_pin) != 4:
-                errors.append("Login PIN must be 4 digits")
-            if login_pin != login_pin_confirm:
-                errors.append("Login PINs don't match")
-            if not transaction_pin or len(transaction_pin) != 4:
-                errors.append("Transaction PIN must be 4 digits")
-            if transaction_pin != transaction_pin_confirm:
-                errors.append("Transaction PINs don't match")
+            user_name = st.text_input("Full Name", placeholder="e.g., John Doe", key="create_user_name")
+            account_type = st.selectbox("Account Type", ["Savings", "Current", "Student", "Senior Citizen"], key="create_account_type")
             
-            if errors:
-                for error in errors:
-                    st.error(f"❌ {error}")
-            else:
-                try:
-                    from database.bank_crud import create_account
-                    import random
-                    
-                    # Generate unique account number
-                    account_num = str(random.randint(2000, 9999))
-                    
-                    # Use login PIN for authentication
-                    success = create_account(
-                        account_number=account_num,
-                        user_name=user_name,
-                        account_type=account_type,
-                        balance=initial_balance,
-                        password=login_pin
-                    )
-                    
-                    if success:
-                        st.success(f"✅ Account created successfully!")
-                        st.markdown(f"""
-                        ### New Account Details
-                        - **Account Number:** `{account_num}`
-                        - **Name:** {user_name}
-                        - **Account Type:** {account_type}
-                        - **Initial Balance:** ₹{initial_balance:,.2f}
+            st.markdown("### Security Setup")
+            login_pin = st.text_input("Login PIN (4 digits)", type="password", placeholder="e.g., 1234", key="new_login_pin")
+            login_pin_confirm = st.text_input("Confirm Login PIN", type="password", placeholder="Confirm PIN", key="new_login_pin_confirm")
+            
+            transaction_pin = st.text_input("Transaction PIN (4 digits)", type="password", placeholder="e.g., 4321", key="new_trans_pin")
+            transaction_pin_confirm = st.text_input("Confirm Transaction PIN", type="password", placeholder="Confirm PIN", key="new_trans_pin_confirm")
+            
+            initial_balance = st.number_input("Initial Balance (₹)", min_value=0.0, value=1000.0, step=100.0, key="create_balance")
+            
+            st.divider()
+            
+            if st.button("✅ Create Account", use_container_width=True, type="primary"):
+                # Validation
+                errors = []
+                
+                if not user_name.strip():
+                    errors.append("Please enter a name")
+                if not login_pin or len(login_pin) != 4:
+                    errors.append("Login PIN must be 4 digits")
+                if login_pin != login_pin_confirm:
+                    errors.append("Login PINs don't match")
+                if not transaction_pin or len(transaction_pin) != 4:
+                    errors.append("Transaction PIN must be 4 digits")
+                if transaction_pin != transaction_pin_confirm:
+                    errors.append("Transaction PINs don't match")
+                
+                if errors:
+                    for error in errors:
+                        st.error(f"❌ {error}")
+                else:
+                    try:
+                        from database.bank_crud import create_account, set_transaction_pin
+                        import random
                         
-                        **Store these credentials safely:**
-                        - Login PIN: {login_pin}
-                        - Transaction PIN: {transaction_pin}
+                        # Generate unique account number
+                        account_num = str(random.randint(2000, 9999))
                         
-                        You can now login with your account number and login PIN!
-                        """)
-                    else:
-                        st.error(f"❌ Failed to create account. Try a different account type or name.")
-                except Exception as e:
-                    st.error(f"❌ Error creating account: {str(e)}")
-    
-    with col2:
-        st.markdown("### ℹ️ Account Types")
+                        # Create account with login PIN
+                        success = create_account(
+                            account_number=account_num,
+                            user_name=user_name,
+                            account_type=account_type,
+                            balance=initial_balance,
+                            password=login_pin
+                        )
+                        
+                        # Store transaction PIN separately
+                        if success:
+                            set_transaction_pin(account_num, transaction_pin)
+                        
+                        if success:
+                            st.success(f"✅ Account created successfully!")
+                            st.divider()
+                            
+                            # Display prominent success section
+                            st.markdown(f"""
+                            <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(0, 217, 255, 0.1) 100%); border: 2px solid #10B981; border-radius: 10px; margin: 20px 0;">
+                                <h1 style='color: #10B981; margin: 0;'>✅ ACCOUNT CREATED SUCCESSFULLY!</h1>
+                                <p style='color: #9CA3AF; margin-top: 8px; font-size: 14px;'>Your new account is now active and ready to use</p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            st.divider()
+                            
+                            # Display in a highlighted card with the account number prominently
+                            st.markdown(f"""
+                            <div class="info-card" style="border: 3px solid #10B981; background-color: rgba(16, 185, 129, 0.1);">
+                                <h2 style='color: #10B981; text-align: center;'>🎉 YOUR NEW ACCOUNT CREATED!</h2>
+                                
+                                <h3 style='color: #00D9FF; text-align: center; font-size: 28px;'>Account #: {account_num}</h3>
+                                <h4 style='color: #E8EAED; text-align: center; font-size: 20px;'>Name: {user_name}</h4>
+                                
+                                <hr>
+                                
+                                <h4 style='color: #00D9FF;'>📋 Account Details:</h4>
+                                <table style='width: 100%; border-collapse: collapse;'>
+                                    <tr style='border-bottom: 1px solid rgba(0, 217, 255, 0.2);'>
+                                        <td style='padding: 8px; font-weight: bold; color: #9CA3AF;'>Account Number:</td>
+                                        <td style='padding: 8px; color: #00D9FF; font-size: 16px;'><code>{account_num}</code></td>
+                                    </tr>
+                                    <tr style='border-bottom: 1px solid rgba(0, 217, 255, 0.2);'>
+                                        <td style='padding: 8px; font-weight: bold; color: #9CA3AF;'>Full Name:</td>
+                                        <td style='padding: 8px; color: #E8EAED;'>{user_name}</td>
+                                    </tr>
+                                    <tr style='border-bottom: 1px solid rgba(0, 217, 255, 0.2);'>
+                                        <td style='padding: 8px; font-weight: bold; color: #9CA3AF;'>Account Type:</td>
+                                        <td style='padding: 8px; color: #E8EAED;'>{account_type}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 8px; font-weight: bold; color: #9CA3AF;'>Initial Balance:</td>
+                                        <td style='padding: 8px; color: #10B981; font-weight: bold;'>₹{initial_balance:,.2f}</td>
+                                    </tr>
+                                </table>
+                                
+                                <hr>
+                                
+                                <h4 style='color: #00D9FF;'>🔐 Security Credentials (Save These Safely!):</h4>
+                                <p style='background-color: rgba(239, 68, 68, 0.1); padding: 12px; border-radius: 5px; border-left: 4px solid #EF4444;'>
+                                    <strong>⚠️ Important:</strong> Save your PINs in a secure location. You will need them to login and make transfers.
+                                </p>
+                                <table style='width: 100%; border-collapse: collapse;'>
+                                    <tr style='border-bottom: 1px solid rgba(0, 217, 255, 0.2);'>
+                                        <td style='padding: 8px; font-weight: bold; color: #9CA3AF;'>Login PIN:</td>
+                                        <td style='padding: 8px; color: #00D9FF; font-family: monospace; font-size: 14px;'>{login_pin}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 8px; font-weight: bold; color: #9CA3AF;'>Transaction PIN:</td>
+                                        <td style='padding: 8px; color: #00D9FF; font-family: monospace; font-size: 14px;'>{transaction_pin}</td>
+                                    </tr>
+                                </table>
+                                
+                                <hr>
+                                
+                                <p style='text-align: center; color: #10B981; font-size: 16px; margin-top: 16px;'>
+                                    ✅ <strong>You can now login using Account Number <code>{account_num}</code> and your Login PIN!</strong>
+                                </p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.balloons()
+                        else:
+                            st.error(f"❌ Failed to create account. Try a different account type or name.")
+                    except Exception as e:
+                        st.error(f"❌ Error creating account: {str(e)}")
+        
+        with col2:
+            st.markdown("### ℹ️ Account Types")
         st.markdown("""
         **Savings**
         - Interest on balance
@@ -802,6 +1343,204 @@ elif selected == "➕ Create Account":
         - Concessions
         - Dedicated support
         """)
+    
+    # ========== TAB 3: ADD EXISTING ACCOUNT ==========
+    with tab_add:
+        st.markdown("### ➕ Add Existing Account")
+        st.markdown("Register an existing account to the system by providing all account details")
+        st.divider()
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.markdown("### Account Information")
+            
+            existing_account_no = st.text_input(
+                "Account Number",
+                placeholder="e.g., 5001 or 9999",
+                key="existing_account_no"
+            )
+            
+            existing_user_name = st.text_input(
+                "Account Holder Name",
+                placeholder="e.g., John Doe",
+                key="existing_user_name"
+            )
+            
+            existing_account_type = st.selectbox(
+                "Account Type",
+                ["Savings", "Current", "Student", "Senior Citizen"],
+                key="existing_account_type"
+            )
+            
+            existing_balance = st.number_input(
+                "Current Balance (₹)",
+                min_value=0.0,
+                value=0.0,
+                step=100.0,
+                key="existing_balance"
+            )
+            
+            st.markdown("### Security Setup")
+            existing_login_pin = st.text_input(
+                "Login PIN (4 digits)",
+                type="password",
+                placeholder="e.g., 1234",
+                key="existing_login_pin"
+            )
+            
+            existing_login_pin_confirm = st.text_input(
+                "Confirm Login PIN",
+                type="password",
+                placeholder="Confirm PIN",
+                key="existing_login_pin_confirm"
+            )
+            
+            existing_transaction_pin = st.text_input(
+                "Transaction PIN (4 digits)",
+                type="password",
+                placeholder="e.g., 4321",
+                key="existing_transaction_pin"
+            )
+            
+            existing_transaction_pin_confirm = st.text_input(
+                "Confirm Transaction PIN",
+                type="password",
+                placeholder="Confirm PIN",
+                key="existing_transaction_pin_confirm"
+            )
+            
+            st.divider()
+            
+            if st.button("✅ Add Existing Account", use_container_width=True, type="primary", key="add_existing_btn"):
+                # Validation
+                errors = []
+                
+                if not existing_account_no.strip():
+                    errors.append("Please enter an account number")
+                
+                if not existing_user_name.strip():
+                    errors.append("Please enter account holder name")
+                
+                if not existing_login_pin or len(existing_login_pin) != 4:
+                    errors.append("Login PIN must be 4 digits")
+                
+                if existing_login_pin != existing_login_pin_confirm:
+                    errors.append("Login PINs don't match")
+                
+                if not existing_transaction_pin or len(existing_transaction_pin) != 4:
+                    errors.append("Transaction PIN must be 4 digits")
+                
+                if existing_transaction_pin != existing_transaction_pin_confirm:
+                    errors.append("Transaction PINs don't match")
+                
+                if errors:
+                    for error in errors:
+                        st.error(f"❌ {error}")
+                else:
+                    try:
+                        from database.bank_crud import create_account, set_transaction_pin
+                        
+                        # Create account with provided account number
+                        success = create_account(
+                            account_number=existing_account_no.strip(),
+                            user_name=existing_user_name,
+                            account_type=existing_account_type,
+                            balance=existing_balance,
+                            password=existing_login_pin
+                        )
+                        
+                        # Store transaction PIN
+                        if success:
+                            set_transaction_pin(existing_account_no.strip(), existing_transaction_pin)
+                        
+                        if success:
+                            st.success(f"✅ Account added successfully!")
+                            
+                            st.markdown(f"""
+                            <div class="info-card" style="border: 3px solid #10B981; background-color: rgba(16, 185, 129, 0.1);">
+                                <h2 style='color: #10B981; text-align: center;'>✅ ACCOUNT ADDED SUCCESSFULLY!</h2>
+                                
+                                <h3 style='color: #00D9FF; text-align: center; font-size: 28px;'>Account Number: {existing_account_no.strip()}</h3>
+                                
+                                <hr>
+                                
+                                <h4 style='color: #00D9FF;'>📋 Account Details:</h4>
+                                <table style='width: 100%; border-collapse: collapse;'>
+                                    <tr style='border-bottom: 1px solid rgba(0, 217, 255, 0.2);'>
+                                        <td style='padding: 8px; font-weight: bold; color: #9CA3AF;'>Account Number:</td>
+                                        <td style='padding: 8px; color: #00D9FF; font-size: 16px;'><code>{existing_account_no.strip()}</code></td>
+                                    </tr>
+                                    <tr style='border-bottom: 1px solid rgba(0, 217, 255, 0.2);'>
+                                        <td style='padding: 8px; font-weight: bold; color: #9CA3AF;'>Account Holder:</td>
+                                        <td style='padding: 8px; color: #E8EAED;'>{existing_user_name}</td>
+                                    </tr>
+                                    <tr style='border-bottom: 1px solid rgba(0, 217, 255, 0.2);'>
+                                        <td style='padding: 8px; font-weight: bold; color: #9CA3AF;'>Account Type:</td>
+                                        <td style='padding: 8px; color: #E8EAED;'>{existing_account_type}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 8px; font-weight: bold; color: #9CA3AF;'>Current Balance:</td>
+                                        <td style='padding: 8px; color: #10B981; font-weight: bold;'>₹{existing_balance:,.2f}</td>
+                                    </tr>
+                                </table>
+                                
+                                <hr>
+                                
+                                <h4 style='color: #00D9FF;'>🔐 Security Credentials:</h4>
+                                <p style='background-color: rgba(239, 68, 68, 0.1); padding: 12px; border-radius: 5px; border-left: 4px solid #EF4444;'>
+                                    <strong>⚠️ Important:</strong> These credentials are now registered in the system.
+                                </p>
+                                <table style='width: 100%; border-collapse: collapse;'>
+                                    <tr style='border-bottom: 1px solid rgba(0, 217, 255, 0.2);'>
+                                        <td style='padding: 8px; font-weight: bold; color: #9CA3AF;'>Login PIN:</td>
+                                        <td style='padding: 8px; color: #00D9FF; font-family: monospace; font-size: 14px;'>{existing_login_pin}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 8px; font-weight: bold; color: #9CA3AF;'>Transaction PIN:</td>
+                                        <td style='padding: 8px; color: #00D9FF; font-family: monospace; font-size: 14px;'>{existing_transaction_pin}</td>
+                                    </tr>
+                                </table>
+                                
+                                <hr>
+                                
+                                <p style='text-align: center; color: #10B981; font-size: 16px; margin-top: 16px;'>
+                                    ✅ <strong>Account <code>{existing_account_no.strip()}</code> is now registered and ready to use!</strong>
+                                </p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.balloons()
+                        else:
+                            st.error(f"❌ Failed to add account. Account number may already exist.")
+                    except Exception as e:
+                        st.error(f"❌ Error adding account: {str(e)}")
+        
+        with col2:
+            st.markdown("### ℹ️ Why Add Existing Account?")
+            st.markdown("""
+            Use this to:
+            - **Migrate** existing bank accounts
+            - **Register** accounts from another system
+            - **Add** partner/colleague accounts
+            - **Import** legacy accounts
+            
+            ### Account Types
+            **Savings**
+            - Interest on balance
+            - Monthly statement
+            
+            **Current**
+            - Unlimited transactions
+            - Business accounts
+            
+            **Student**
+            - Special rates
+            - Benefits
+            
+            **Senior Citizen**
+            - Higher interest
+            - Concessions
+            """)
 
 elif selected == "🧾 Admin":
     # ============================================================
@@ -1745,9 +2484,7 @@ elif selected == "🧾 Admin":
             - ❌ Use exact same examples for different intents
             """)
     
-    # ============================================
-    # TAB 5: KNOWLEDGE BASE
-    # ============================================
+
     
     # ============================================
     # TAB 5: NLU VISUALIZER (NEW)

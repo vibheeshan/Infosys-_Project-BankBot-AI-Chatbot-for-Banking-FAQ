@@ -211,7 +211,16 @@ def list_accounts():
 def get_all_accounts():
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("SELECT account_number, user_name, account_type, balance FROM accounts")
+    # Join accounts with users to get the user_name
+    cur.execute("""
+        SELECT 
+            a.account_number, 
+            u.name as user_name, 
+            a.account_type, 
+            a.balance
+        FROM accounts a
+        LEFT JOIN users u ON a.user_id = u.id
+    """)
     rows = cur.fetchall()
     conn.close()
     accounts = []
@@ -365,3 +374,200 @@ def block_card(card_identifier: str):
     if not card_identifier:
         return "❌ Please specify which card to block (debit/credit or last 4 digits)."
     return f"✅ Card ({card_identifier}) has been blocked. If this is a mistake, contact support."
+
+# ============================================================================
+# CARD MANAGEMENT FUNCTIONS
+# ============================================================================
+
+def get_cards_by_account(account_number: str):
+    """Get all cards for a specific account."""
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT card_id, account_number, card_type, card_number, status, created_at
+            FROM cards WHERE account_number=?
+            """,
+            (account_number,),
+        )
+        rows = cur.fetchall()
+        cards = []
+        for r in rows:
+            cards.append({
+                "card_id": r[0],
+                "account_number": r[1],
+                "card_type": r[2],
+                "card_number": r[3],
+                "status": r[4],
+                "created_at": r[5],
+            })
+        return cards
+    except Exception as e:
+        print(f"Error getting cards: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def add_card(account_number: str, card_type: str, card_number: str = None) -> bool:
+    """Add a new card to an account."""
+    if not account_number or not card_type:
+        return False
+    
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            INSERT INTO cards (account_number, card_type, card_number, status)
+            VALUES (?, ?, ?, ?)
+            """,
+            (account_number, card_type, card_number, "Active"),
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error adding card: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def update_card_status(card_id: int, status: str) -> bool:
+    """Update card status (Active, Blocked, Cancelled, etc.)."""
+    if not card_id or not status:
+        return False
+    
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            UPDATE cards SET status=? WHERE card_id=?
+            """,
+            (status, card_id),
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error updating card status: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+# ============================================================================
+# LOAN MANAGEMENT FUNCTIONS
+# ============================================================================
+
+def get_loans_by_account(account_number: str):
+    """Get all loans for a specific account."""
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT loan_id, account_number, loan_type, principal_amount, interest_rate,
+                   tenure_months, monthly_emi, remaining_amount, status, start_date, end_date, created_at
+            FROM loans WHERE account_number=?
+            """,
+            (account_number,),
+        )
+        rows = cur.fetchall()
+        loans = []
+        for r in rows:
+            loans.append({
+                "loan_id": r[0],
+                "account_number": r[1],
+                "loan_type": r[2],
+                "principal_amount": float(r[3]) if r[3] is not None else 0.0,
+                "interest_rate": float(r[4]) if r[4] is not None else 0.0,
+                "tenure_months": r[5],
+                "monthly_emi": float(r[6]) if r[6] is not None else 0.0,
+                "remaining_amount": float(r[7]) if r[7] is not None else 0.0,
+                "status": r[8],
+                "start_date": r[9],
+                "end_date": r[10],
+                "created_at": r[11],
+            })
+        return loans
+    except Exception as e:
+        print(f"Error getting loans: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def add_loan(account_number: str, loan_type: str, principal_amount: float, 
+             interest_rate: float = 0.0, tenure_months: int = 12, 
+             monthly_emi: float = 0.0, start_date: str = None) -> bool:
+    """Add a new loan to an account."""
+    if not account_number or not loan_type or principal_amount <= 0:
+        return False
+    
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            INSERT INTO loans 
+            (account_number, loan_type, principal_amount, interest_rate, tenure_months, monthly_emi, remaining_amount, status, start_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (account_number, loan_type, principal_amount, interest_rate, tenure_months, 
+             monthly_emi, principal_amount, "Active", start_date or datetime.now().isoformat()),
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error adding loan: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def update_loan_status(loan_id: int, status: str) -> bool:
+    """Update loan status (Active, Closed, Defaulted, etc.)."""
+    if not loan_id or not status:
+        return False
+    
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            UPDATE loans SET status=? WHERE loan_id=?
+            """,
+            (status, loan_id),
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error updating loan status: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def update_loan_remaining_amount(loan_id: int, remaining_amount: float) -> bool:
+    """Update remaining amount for a loan."""
+    if loan_id is None or remaining_amount < 0:
+        return False
+    
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            UPDATE loans SET remaining_amount=? WHERE loan_id=?
+            """,
+            (remaining_amount, loan_id),
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error updating loan remaining amount: {e}")
+        return False
+    finally:
+        conn.close()
