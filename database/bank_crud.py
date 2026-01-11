@@ -59,7 +59,7 @@ def create_account(*args, **kwargs):
     Supports two common call orders for backward compatibility:
     - (name, acc_no, acc_type, balance, password)
     - (acc_no, name, initial_balance, pin, account_type)
-    Also accepts keyword arguments: account_number, user_name, account_type, balance, password
+    Also accepts keyword arguments: account_number, user_name, account_type, balance, password, email
     Returns True on success, False on failure.
     """
     # Normalize inputs
@@ -68,6 +68,7 @@ def create_account(*args, **kwargs):
     account_type = kwargs.get("account_type") or kwargs.get("acc_type")
     balance = kwargs.get("balance")
     password = kwargs.get("password")
+    email = kwargs.get("email")
 
     if not account_number and args:
         # Determine ordering by checking which arg looks like an account number
@@ -93,7 +94,12 @@ def create_account(*args, **kwargs):
     conn = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("INSERT OR IGNORE INTO users(name) VALUES (?)", (user_name,))
+        # Insert user with email
+        if email:
+            cur.execute("INSERT OR IGNORE INTO users(name, email) VALUES (?, ?)", (user_name, email))
+        else:
+            cur.execute("INSERT OR IGNORE INTO users(name) VALUES (?)", (user_name,))
+        
         # Ensure we have a user_id
         cur.execute("SELECT id FROM users WHERE name=?", (user_name,))
         user_row = cur.fetchone()
