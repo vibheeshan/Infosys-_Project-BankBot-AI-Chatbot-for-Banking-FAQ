@@ -112,37 +112,6 @@ BankBot_AI/
 
 ---
 
-## 📌 Milestones Overview
-
-### ✅ Milestone 1 – Chatbot Foundation
-
-* Streamlit-based UI
-* Core chatbot flow
-* User authentication & session handling
-
-### ✅ Milestone 2 – NLU & Banking Logic
-
-* Intent classification
-* Entity extraction
-* Slot-filling dialogue
-* Banking operations (balance, transfer, card block)
-
-### ✅ Milestone 3 – Database & LLM Integration
-
-* SQLite database integration
-* Transaction history tracking
-* Secure PIN verification
-* LLM support for non-banking queries
-
-### ✅ Milestone 4 – Admin Panel & Analytics
-
-* Admin dashboard
-* Training editor & retraining controls
-* Confidence & performance analytics
-* Logs, errors & knowledge base management
-
----
-
 ## 🔐 Security
 
 * Login PIN & Transaction PIN stored using **hashed encryption**
