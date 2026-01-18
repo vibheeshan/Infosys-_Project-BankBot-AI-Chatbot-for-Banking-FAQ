@@ -1,11 +1,29 @@
+# BankBot – AI Chatbot for Banking FAQs
 
+<p align="center">
+  <!-- Badges: replace href/src with your values -->
+  <a href="https://www.python.org/"><img alt="Python" src="https://img.shields.io/badge/Python-3.9%2B-blue" /></a>
+  <img alt="AI" src="https://img.shields.io/badge/AI-NLP-green" />
+  <img alt="LLM" src="https://img.shields.io/badge/LLM-Transformer--Based-orange" />
+  <img alt="Status" src="https://img.shields.io/badge/Status-Active-brightgreen" />
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-lightgrey" /></a>
+</p>
+
+<p align="center">
+  <!-- Screenshot image stored in repo at `images/readme-header.png` -->
+  
+</p>
+
+---
+
+## Project Description
 
 # 🏦 BankBot AI – Intelligent Banking Chatbot
 
 BankBot AI is an **AI-powered banking chatbot** built using **Python, Streamlit, custom NLU, and SQLite**.
 It allows users to perform core banking operations using **natural language**, while also providing a powerful **admin panel** for analytics, training, and monitoring.
 
-The project is developed **milestone-wise** to clearly demonstrate:
+The project is developed in stages to clearly demonstrate:
 
 * Natural Language Understanding (NLU)
 * Dialogue & slot-filling management
@@ -20,6 +38,15 @@ It helps users perform banking operations such as checking balance, transferring
 
 ## 🚀 Features
 
+* 💬 Natural language conversation for banking FAQs
+* 🧠 Context-aware AI responses
+* 🔁 Configurable LLM backend (easy to switch models)
+* ⚡ Fast response generation
+* 🏦 Domain-specific prompt tuning for banking
+* 🖥️ Easy local execution
+* 📄 Clean and modular project structure
+
+---
 ### 👤 User Features
 
 * User login & account creation
@@ -43,7 +70,7 @@ It helps users perform banking operations such as checking balance, transferring
 
 ---
 
-### 🛠️ Admin Features (Milestone 4)
+### 🛠️ Admin Features 
 
 * Admin dashboard with usage analytics
 * Monitor intents, confidence scores, and performance
@@ -277,6 +304,47 @@ models/intent_model/
 ```
 
 ---
+## 🧑‍💻 Technologies Used
+
+* Python
+* Streamlit
+* SQLite
+* Custom NLU / ML models
+* LLM (Groq / OpenAI compatible)
+* bcrypt (security)
+## Libraries / Frameworks
+* transformers
+* torch
+* nltk
+* sentencepiece
+* streamlit  (for UI or API layer)
+* pandas
+* numpy
+
+## AI / ML Technologies
+* Natural Language Processing (NLP)
+* Large Language Models (LLMs)
+* Transformer architecture
+* Prompt Engineering
+
+---
+## 🧑‍💻Techniques Used 
+
+## Natural Language Processing (NLP)
+* Text preprocessing and normalization
+* User intent understanding
+* Context preservation across queries
+  
+## Prompt Engineering
+* Domain-specific prompt design for banking use cases
+* Controlled and safe response generation
+* Prompt templates for consistent outputs
+  
+## LLM-based Text Generation
+* Transformer-based text generation
+* Instruction-following conversational AI
+* Scalable and model-agnostic design
+---
 
 ## 🗄️ Database
 
@@ -309,16 +377,6 @@ models/intent_model/
 
 ---
 
-## 🧑‍💻 Technologies Used
-
-* Python
-* Streamlit
-* SQLite
-* Custom NLU / ML models
-* LLM (Groq / OpenAI compatible)
-* bcrypt (security)
-
----
 
 ## 📌 Conclusion
 
@@ -327,10 +385,14 @@ Its **modular and milestone-based architecture** makes it scalable, explainable,
 
 ---
 
+## License
+This project is licensed under the MIT License. You are free to use, modify, and distribute this project for educational and professional purposes.
+
+--- 
 ## 👨‍🎓 Developed By
 
 **Vibheeshan N K**
 *BankBot AI – Intelligent Banking Chatbot*
-
 ---
-
+⭐ If you find this project useful, please consider giving it a star on GitHub!
+---
